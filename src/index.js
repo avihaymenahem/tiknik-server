@@ -1,5 +1,8 @@
 require('dotenv').config();
 
+const fs = require('fs');
+const http = require('http');
+const https = require('https');
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -7,8 +10,18 @@ const app = express();
 const mailjet = require('node-mailjet')
     .connect(process.env.MAILJET_API_KEY, process.env.MAILJET_API_SECRET);
 
+const privateKey = fs.readFileSync('/etc/letsencrypt/live/tiknik.co.il/privkey.pem', 'utf8');
+const certificate = fs.readFileSync('/etc/letsencrypt/live/tiknik.co.il/cert.pem', 'utf8');
+const ca = fs.readFileSync('/etc/letsencrypt/live/tiknik.co.il/chain.pem', 'utf8');
+
+const credentials = {
+	key: privateKey,
+	cert: certificate,
+	ca: ca
+};
+
 app.use(cors());
-app.use(bodyParser.json())
+app.use(bodyParser.json());
 
 app.get('/', function (req, res) {
     res.send('Hello World')
@@ -60,4 +73,13 @@ app.post('/email', (req, res) => {
         })
 })
 
-app.listen(process.env.PORT);
+const httpServer = http.createServer(app);
+const httpsServer = https.createServer(credentials, app);
+
+httpServer.listen(process.env.HTTP_PORT, () => {
+	console.log('HTTP Server running on port ' + process.env.HTTP_PORT);
+});
+
+httpsServer.listen(process.env.HTTPS_PORT, () => {
+	console.log('HTTPS Server running on port ' + process.env.HTTPS_PORT);
+});
